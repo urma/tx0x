@@ -1,0 +1,10 @@
+[package]
+name = "tx0x"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ratatui = "0.29"
+crossterm = "0.28"
+rodio = { version = "0.20", default-features = false, features = ["wav"] }
+anyhow = "1"
