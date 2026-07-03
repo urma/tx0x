@@ -22,21 +22,27 @@ pub struct App {
     pub selected_track: usize,
     pub cursor_step: usize,
     pub current_step: usize,
-    pub step_time: Instant,
     pub playing: bool,
     pub bpm: u32,
+    pub sample_rate: u32,
+    pub sample_counter: f64,
+    pub next_step_sample: f64,
+    pub last_update: Instant,
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(sample_rate: u32) -> Self {
         Self {
             tracks: (0..TRACK_COUNT).map(|_| Track::new()).collect(),
             selected_track: 0,
             cursor_step: 0,
             current_step: 0,
-            step_time: Instant::now(),
             playing: false,
             bpm: 120,
+            sample_rate,
+            sample_counter: 0.0,
+            next_step_sample: 0.0,
+            last_update: Instant::now(),
         }
     }
 
@@ -44,14 +50,18 @@ impl App {
         self.tracks[self.selected_track].steps[self.cursor_step] ^= true;
     }
 
+    pub fn should_advance(&self) -> bool {
+        self.playing && self.sample_counter >= self.next_step_sample
+    }
+
     pub fn advance(&mut self) {
         self.current_step = (self.current_step + 1) % STEP_COUNT;
-        self.step_time = Instant::now();
+        self.next_step_sample += self.step_duration_samples();
     }
 
     pub fn start(&mut self) {
         self.current_step = 0;
-        self.step_time = Instant::now();
+        self.next_step_sample = self.sample_counter + self.step_duration_samples();
         self.playing = true;
     }
 
@@ -59,16 +69,8 @@ impl App {
         self.playing = false;
     }
 
-    pub fn step_duration_secs(&self) -> f64 {
-        60.0 / (self.bpm as f64 * 4.0)
-    }
-
-    pub fn time_since_step(&self) -> f64 {
-        self.step_time.elapsed().as_secs_f64()
-    }
-
-    pub fn should_advance(&self) -> bool {
-        self.playing && self.time_since_step() >= self.step_duration_secs()
+    pub fn step_duration_samples(&self) -> f64 {
+        60.0 / (self.bpm as f64 * 4.0) * self.sample_rate as f64
     }
 
     pub fn prev_track(&mut self) {

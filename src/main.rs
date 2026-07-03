@@ -10,7 +10,7 @@ use crossterm::{
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::io;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use app::App;
 use audio::AudioEngine;
@@ -23,7 +23,7 @@ fn main() -> Result<()> {
     }));
 
     let mut terminal = setup_terminal()?;
-    let mut app = App::new();
+    let mut app = App::new(44100);
     let mut audio = AudioEngine::new();
     if audio.is_none() {
         eprintln!("Warning: No audio device or no samples found. Running without sound.");
@@ -56,13 +56,22 @@ fn run(
     audio: &mut Option<AudioEngine>,
 ) -> Result<()> {
     loop {
-        if app.should_advance() {
+        if let Some(audio) = audio {
+            app.sample_counter = audio.sample_position() as f64;
+        } else {
+            let now = Instant::now();
+            let elapsed = now.duration_since(app.last_update).as_secs_f64();
+            app.sample_counter += elapsed * app.sample_rate as f64;
+            app.last_update = now;
+        }
+
+        while app.should_advance() {
             app.advance();
             let step = app.current_step;
-            for (i, track) in app.tracks.iter().enumerate() {
-                if track.steps[step] {
-                    if let Some(audio) = audio {
-                        audio.play(i);
+            if let Some(audio) = audio {
+                for (i, track) in app.tracks.iter().enumerate() {
+                    if track.steps[step] {
+                        audio.trigger(i);
                     }
                 }
             }
